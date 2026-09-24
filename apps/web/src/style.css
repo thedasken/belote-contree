@@ -586,6 +586,43 @@ input:focus-visible {
     min-height: 50px;
   }
 }
+
+/* Mobile forms: avoid browser zoom and keep the login card close to the edges. */
+@media (max-width: 700px) {
+  .home {
+    padding: 8px;
+  }
+  .home > .card {
+    width: 100%;
+    max-width: none;
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+  .home input,
+  .home button,
+  .table input,
+  .table select,
+  .table button,
+  .panel input,
+  .panel select,
+  .panel button {
+    min-height: 48px;
+    font-size: 16px;
+  }
+  .home input,
+  .join input {
+    padding: 12px;
+  }
+  .join {
+    grid-template-columns: 1fr;
+  }
+  .join button {
+    width: 100%;
+  }
+  .card > input {
+    margin: 12px 0;
+  }
+}
 @media (max-width: 700px) and (orientation: portrait) {
   .game-shell::before {
     content: "Pour jouer confortablement, passez votre téléphone en paysage";
@@ -781,39 +818,55 @@ input:focus-visible {
   transform: translateY(-50%);
 }
 .trick-fly-top {
-  animation: trick-fly-top 700ms ease-in forwards;
+  animation: trick-fly-top 1200ms ease-in forwards;
 }
 .trick-fly-bottom {
-  animation: trick-fly-bottom 700ms ease-in forwards;
+  animation: trick-fly-bottom 1200ms ease-in forwards;
 }
 .trick-fly-left {
-  animation: trick-fly-left 700ms ease-in forwards;
+  animation: trick-fly-left 1200ms ease-in forwards;
 }
 .trick-fly-right {
-  animation: trick-fly-right 700ms ease-in forwards;
+  animation: trick-fly-right 1200ms ease-in forwards;
 }
 @keyframes trick-fly-top {
+  from {
+    translate: 0 0;
+  }
   to {
     opacity: 0;
-    transform: translate(-50%, -120px) scale(0.82);
+    translate: 0 -120px;
+    scale: 0.82;
   }
 }
 @keyframes trick-fly-bottom {
+  from {
+    translate: 0 0;
+  }
   to {
     opacity: 0;
-    transform: translate(-50%, 120px) scale(0.82);
+    translate: 0 120px;
+    scale: 0.82;
   }
 }
 @keyframes trick-fly-left {
+  from {
+    translate: 0 0;
+  }
   to {
     opacity: 0;
-    transform: translate(-120px, -50%) scale(0.82);
+    translate: -120px 0;
+    scale: 0.82;
   }
 }
 @keyframes trick-fly-right {
+  from {
+    translate: 0 0;
+  }
   to {
     opacity: 0;
-    transform: translate(120px, -50%) scale(0.82);
+    translate: 120px 0;
+    scale: 0.82;
   }
 }
 .game-table .trick .playing-card {
@@ -871,6 +924,29 @@ input:focus-visible {
   width: min(94vw, 560px);
   margin: 0;
   padding: 8px;
+}
+.bidding-panel {
+  bottom: clamp(130px, 28vh, 220px);
+  justify-content: center;
+  width: min(calc(100% - 16px), 560px);
+}
+.bidding-panel h2 {
+  margin: 0 0 8px;
+  text-align: center;
+}
+.bidding-panel select {
+  min-width: 112px;
+  min-height: 48px;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid #ffffff44;
+  border-radius: 9px;
+  background: #0b3029;
+  color: var(--cream);
+  box-shadow: inset 0 1px 0 #ffffff12;
+  cursor: pointer;
+}
+.bidding-panel button {
+  min-height: 48px;
 }
 .panel h2 {
   font-size: 0.9rem;

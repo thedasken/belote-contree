@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   currentTrick,
+  justCompletedTrick,
   relativePosition,
   shouldHighlightHand,
   sortHand,
@@ -60,6 +61,12 @@ describe("hand ordering", () => {
     expect(currentTrick([...completed, { winner: null }], 2)).toEqual({
       winner: null,
     });
+  });
+
+  it("recognizes only a newly completed trick", () => {
+    expect(justCompletedTrick(2, 3)).toBe(true);
+    expect(justCompletedTrick(3, 3)).toBe(false);
+    expect(justCompletedTrick(null, 3)).toBe(false);
   });
 
   it("places seats relative to the local player", () => {

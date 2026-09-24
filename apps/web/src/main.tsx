@@ -10,6 +10,7 @@ import {
 import type { Room } from "./transport";
 import {
   currentTrick,
+  justCompletedTrick,
   relativePosition,
   shouldHighlightHand,
   sortHand,
@@ -373,7 +374,7 @@ function Game({
   const [dealAnimation, setDealAnimation] = useState(0);
   const [feedback, setFeedback] = useState("");
   useEffect(() => {
-    const previous = previousTrickGame.current;
+    const previous = previousGame.current;
     if (previous && previous.hand.length === 0 && game?.hand.length === 8)
       setDealAnimation((value) => value + 1);
     if (
@@ -395,8 +396,11 @@ function Game({
   }, [game]);
   useEffect(() => {
     if (!game) return;
-    const previous = previousGame.current;
-    const current = currentTrick(game.publicTricks, game.completedTrickCount);
+    const previous = previousTrickGame.current;
+    const current =
+      game.phase === "PLAYING"
+        ? currentTrick(game.publicTricks, game.completedTrickCount)
+        : null;
     trickTimer.current += 1;
     const token = trickTimer.current;
     if (current) {
@@ -406,15 +410,17 @@ function Game({
       return;
     }
     if (
-      previous &&
-      game.completedTrickCount > previous.completedTrickCount &&
+      justCompletedTrick(
+        previous?.completedTrickCount ?? null,
+        game.completedTrickCount,
+      ) &&
       game.lastTrick
     ) {
       setDisplayedTrick(game.lastTrick);
       setTrickLeaving(true);
       const timer = window.setTimeout(
         () => token === trickTimer.current && setDisplayedTrick(null),
-        1000,
+        1500,
       );
       previousTrickGame.current = game;
       return () => window.clearTimeout(timer);
@@ -544,7 +550,7 @@ function Game({
         />
       )}
       {game.biddingActions.includes("PLACE_BID") && (
-        <section className="panel">
+        <section className="panel bidding-panel">
           <h2>Enchères</h2>
           <select
             value={bidValue}

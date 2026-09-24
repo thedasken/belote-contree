@@ -21,6 +21,13 @@ export function currentTrick<T>(tricks: readonly T[], completedCount: number) {
   return tricks.length > completedCount ? tricks.at(-1)! : null;
 }
 
+export function justCompletedTrick(
+  previousCount: number | null,
+  completedCount: number,
+) {
+  return previousCount !== null && completedCount > previousCount;
+}
+
 export function relativePosition(local: number, seat: number) {
   return ["bottom", "left", "top", "right"][(seat - local + 4) % 4];
 }
