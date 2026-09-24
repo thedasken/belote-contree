@@ -1,0 +1,14 @@
+{
+  "name": "@belote/game-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "prettier --check src test",
+    "build": "tsc"
+  },
+  "devDependencies": { "@types/node": "24.10.1", "typescript": "5.9.3", "vitest": "3.2.4" }
+}

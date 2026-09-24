@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/test-results
+data
+*.sqlite
+*.sqlite-*
+.env
+.env.*
+!.env.example
+README.md
+docs
+prompts
