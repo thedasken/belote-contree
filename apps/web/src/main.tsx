@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   RoomSocket,
@@ -8,8 +8,21 @@ import {
   saveSession,
 } from "./transport";
 import type { Room } from "./transport";
+import {
+  currentTrick,
+  relativePosition,
+  shouldHighlightHand,
+  sortHand,
+  turnMessage,
+} from "./hand-order";
+import {
+  AUCTION_LABELS,
+  cardIllustrationId,
+  cardLabel,
+  SUIT_LABELS,
+} from "./labels";
 import "./style.css";
-type Card = { suit: "SPADES" | "HEARTS" | "DIAMONDS" | "CLUBS"; rank: string };
+type Card = import("./main-types").Card;
 type GameView = {
   phase: string;
   seat: number;
@@ -351,10 +364,16 @@ function Game({
   const [trump, setTrump] = useState<Card["suit"]>("SPADES");
   const [busy, setBusy] = useState(false);
   const previousGame = useRef<GameView | null>(null);
+  const previousTrickGame = useRef<GameView | null>(null);
+  const trickTimer = useRef(0);
+  const [displayedTrick, setDisplayedTrick] = useState<
+    GameView["publicTricks"][number] | null
+  >(null);
+  const [trickLeaving, setTrickLeaving] = useState(false);
   const [dealAnimation, setDealAnimation] = useState(0);
   const [feedback, setFeedback] = useState("");
   useEffect(() => {
-    const previous = previousGame.current;
+    const previous = previousTrickGame.current;
     if (previous && previous.hand.length === 0 && game?.hand.length === 8)
       setDealAnimation((value) => value + 1);
     if (
@@ -373,6 +392,36 @@ function Game({
       );
     }
     previousGame.current = game;
+  }, [game]);
+  useEffect(() => {
+    if (!game) return;
+    const previous = previousGame.current;
+    const current = currentTrick(game.publicTricks, game.completedTrickCount);
+    trickTimer.current += 1;
+    const token = trickTimer.current;
+    if (current) {
+      setDisplayedTrick(current);
+      setTrickLeaving(false);
+      previousTrickGame.current = game;
+      return;
+    }
+    if (
+      previous &&
+      game.completedTrickCount > previous.completedTrickCount &&
+      game.lastTrick
+    ) {
+      setDisplayedTrick(game.lastTrick);
+      setTrickLeaving(true);
+      const timer = window.setTimeout(
+        () => token === trickTimer.current && setDisplayedTrick(null),
+        1000,
+      );
+      previousTrickGame.current = game;
+      return () => window.clearTimeout(timer);
+    }
+    setDisplayedTrick(null);
+    setTrickLeaving(false);
+    previousTrickGame.current = game;
   }, [game]);
   function command(command: unknown) {
     if (!send || !game || busy || paused || game.phase === "GAME_COMPLETED")
@@ -399,11 +448,27 @@ function Game({
     );
   const local = room.participants.find((p) => p.seat === game.seat);
   const owner = room.ownerId === local?.id;
+  const isMyTurn = game.phase === "PLAYING" && game.activeSeat === game.seat;
+  const highlightPartial = shouldHighlightHand(
+    isMyTurn,
+    game.hand.length,
+    game.legalCards.length,
+  );
   const cardLegal = (card: Card) =>
     game.legalCards.some(
       (candidate) =>
         candidate.suit === card.suit && candidate.rank === card.rank,
     );
+  const orderedHand = useMemo(
+    () => sortHand(game.hand, game.contract?.bid.trumpSuit) as Card[],
+    [game.hand, game.contract?.bid.trumpSuit],
+  );
+  const trickFlyDirection =
+    trickLeaving &&
+    displayedTrick?.winner !== null &&
+    displayedTrick?.winner !== undefined
+      ? relativePosition(game.seat, displayedTrick.winner)
+      : null;
   return (
     <main className="game-shell">
       {paused && (
@@ -413,58 +478,71 @@ function Game({
         </div>
       )}
       <header className="game-header">
-        <div>
-          <p className="eyebrow">BELOTE CONTRÉE · {game.phase}</p>
-          <h1>Table de jeu</h1>
-        </div>
+        <button className="home-button" onClick={onLeave}>
+          Accueil
+        </button>
         <div className="score">
-          <b>A {game.scores.A}</b>
-          <strong>—</strong>
-          <b>B {game.scores.B}</b>
+          <b>Nous : {game.seat % 2 === 0 ? game.scores.A : game.scores.B}</b>
+          <b>Eux : {game.seat % 2 === 0 ? game.scores.B : game.scores.A}</b>
         </div>
       </header>
-      <p data-testid="participant-count">
-        Participants : {room.participants.length}
-      </p>
       <section className="game-table">
         {room.participants
           .filter((p) => p.seat !== game.seat)
           .map((p) => (
             <div
-              className={`player player-${relativePosition(game.seat, p.seat)} ${game.publicTricks.at(-1)?.winner === p.seat ? "player-winner" : ""}`}
+              className={`player player-${relativePosition(game.seat, p.seat)} ${displayedTrick?.winner === p.seat ? "player-winner" : ""}`}
               key={p.id}
             >
               <strong>{p.nickname}</strong>
-              <small>
-                Équipe {p.team} · {p.connected ? "En ligne" : "Hors ligne"}
-              </small>
-              <span className="card-back">▧ ▧ ▧</span>
+              {game.contract?.bid.bidderSeat === p.seat && (
+                <small className="player-contract">
+                  {game.contract.bid.value}{" "}
+                  {suitSymbol(game.contract.bid.trumpSuit)}{" "}
+                  {game.contract.status !== "NORMAL"
+                    ? game.contract.status
+                    : ""}
+                </small>
+              )}
             </div>
           ))}
         <div className="trick" data-testid="current-trick">
-          {game.publicTricks
-            .at(-1)
-            ?.cards.map((entry) => (
+          {displayedTrick?.cards.map((entry) => (
+            <span
+              className={`trick-card trick-${relativePosition(game.seat, entry.seat)}${trickFlyDirection ? ` trick-fly-${trickFlyDirection}` : ""}`}
+            >
               <PlayingCard
                 key={`${entry.seat}-${entry.card.rank}`}
                 card={entry.card}
                 animated
               />
-            )) ?? (
-            <span>
-              Votre tour :{" "}
-              {game.activeSeat === game.seat
-                ? "à vous"
-                : (room.participants.find((p) => p.seat === game.activeSeat)
-                    ?.nickname ?? "—")}
             </span>
-          )}
+          ))}
         </div>
+        {game.phase === "PLAYING" && game.activeSeat !== null && !paused && (
+          <p className="turn-message">
+            {game.activeSeat === game.seat
+              ? turnMessage(game.activeSeat, game.seat, local?.nickname)
+              : turnMessage(
+                  game.activeSeat,
+                  game.seat,
+                  room.participants.find(
+                    (player) => player.seat === game.activeSeat,
+                  )?.nickname,
+                )}
+          </p>
+        )}
       </section>
       <p className="sr-feedback" aria-live="polite">
         {feedback}
       </p>
-      {game.lastTrick && <LastTrickDialog trick={game.lastTrick} room={room} />}
+      {game.lastTrick && (
+        <LastTrickDialog
+          trick={game.lastTrick}
+          room={room}
+          localSeat={game.seat}
+        />
+      )}
       {game.biddingActions.includes("PLACE_BID") && (
         <section className="panel">
           <h2>Enchères</h2>
@@ -489,7 +567,9 @@ function Game({
             onChange={(e) => setTrump(e.target.value as Card["suit"])}
           >
             {game.trumpSuits.map((suit) => (
-              <option key={suit}>{suit}</option>
+              <option key={suit} value={suit}>
+                {SUIT_LABELS[suit]}
+              </option>
             ))}
           </select>
           <button
@@ -503,14 +583,14 @@ function Game({
               })
             }
           >
-            Annoncer
+            {AUCTION_LABELS.BID}
           </button>
           <button
             disabled={busy || paused}
             className="secondary"
             onClick={() => command({ type: "PASS", seat: game.seat })}
           >
-            Passer
+            {AUCTION_LABELS.PASS}
           </button>
         </section>
       )}
@@ -519,7 +599,7 @@ function Game({
           disabled={busy || paused}
           onClick={() => command({ type: "COINCHE", seat: game.seat })}
         >
-          Coinche
+          {AUCTION_LABELS.COINCHE}
         </button>
       )}
       {game.biddingActions.includes("SURCOINCHE") && (
@@ -527,7 +607,7 @@ function Game({
           disabled={busy || paused}
           onClick={() => command({ type: "SURCOINCHE", seat: game.seat })}
         >
-          Surcoinche
+          {AUCTION_LABELS.SURCOINCHE}
         </button>
       )}
       {game.biddingActions.includes("DECLINE_SURCOINCHE") && (
@@ -538,23 +618,27 @@ function Game({
             command({ type: "DECLINE_SURCOINCHE", seat: game.seat })
           }
         >
-          Passer
+          {AUCTION_LABELS.PASS}
         </button>
       )}
-      <p data-testid="completed-tricks">
-        Plis terminés : {game.completedTrickCount}
-      </p>
       {game.hand.length > 0 && (
         <section className="hand" data-testid="local-hand">
           <h2 data-testid="local-identity">
-            {local?.nickname ?? "Votre main"} · Équipe {local?.team}
+            {local?.nickname ?? "Votre main"}
+            {game.contract?.bid.bidderSeat === game.seat && (
+              <small className="player-contract">
+                {game.contract.bid.value}{" "}
+                {suitSymbol(game.contract.bid.trumpSuit)}{" "}
+                {game.contract.status !== "NORMAL" ? game.contract.status : ""}
+              </small>
+            )}
           </h2>
-          {game.hand.map((card, index) => (
+          {orderedHand.map((card, index) => (
             <button
               data-testid="card"
               style={{ "--card-index": index } as React.CSSProperties}
-              className={`card-button ${dealAnimation > 0 ? "deal-card" : ""}`}
-              aria-label={`${card.rank} ${card.suit === "SPADES" ? "pique" : card.suit === "HEARTS" ? "cœur" : card.suit === "DIAMONDS" ? "carreau" : "trèfle"}${cardLegal(card) ? ", jouable" : ", non jouable"}`}
+              className={`card-button ${dealAnimation > 0 ? "deal-card" : ""} ${highlightPartial && cardLegal(card) ? "card-highlight" : ""} ${isMyTurn && cardLegal(card) ? "card-playable" : ""}`}
+              aria-label={`${cardLabel(card)}${cardLegal(card) ? ", jouable" : ", non jouable"}`}
               disabled={!cardLegal(card) || busy || paused}
               key={`${card.suit}-${card.rank}`}
               onClick={() =>
@@ -566,12 +650,9 @@ function Game({
           ))}
         </section>
       )}
-      {game.contract && (
-        <p className="contract">
-          Contrat : {game.contract.bid.value} {game.contract.bid.trumpSuit} ·
-          équipe {game.contract.team} · {game.contract.status}
-        </p>
-      )}
+      <p data-testid="completed-tricks" className="sr-feedback">
+        Plis terminés : {game.completedTrickCount}
+      </p>
       {game.dealResult && (
         <section className="panel">
           <h2>Fin de donne</h2>
@@ -600,21 +681,20 @@ function Game({
         </section>
       )}
       {error && <p className="error">{error}</p>}
-      <button className="link" onClick={onLeave}>
-        Retour à l’accueil
-      </button>
     </main>
   );
 }
-function relativePosition(local: number, seat: number) {
-  return ["bottom", "left", "top", "right"][(seat - local + 4) % 4];
+function suitSymbol(suit: Card["suit"]) {
+  return { SPADES: "♠", HEARTS: "♥", DIAMONDS: "♦", CLUBS: "♣" }[suit];
 }
 function LastTrickDialog({
   trick,
   room,
+  localSeat,
 }: {
   trick: NonNullable<GameView["lastTrick"]>;
   room: Room;
+  localSeat: number;
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -639,17 +719,13 @@ function LastTrickDialog({
         >
           <section className="dialog">
             <h2>Dernier pli</h2>
-            <div className="trick">
+            <div className="trick last-trick-layout">
               {trick.cards.map((entry) => (
-                <span key={entry.seat}>
+                <span
+                  key={entry.seat}
+                  className={`trick-card trick-${relativePosition(localSeat, entry.seat)}`}
+                >
                   <PlayingCard card={entry.card} />
-                  <small>
-                    {
-                      room.participants.find(
-                        (player) => player.seat === entry.seat,
-                      )?.nickname
-                    }
-                  </small>
                 </span>
               ))}
             </div>
@@ -672,17 +748,18 @@ function PlayingCard({
   card: Card;
   animated?: boolean;
 }) {
-  const suit = { SPADES: "♠", HEARTS: "♥", DIAMONDS: "♦", CLUBS: "♣" }[
-    card.suit
-  ];
+  const illustrationId = cardIllustrationId(card);
   return (
-    <span
-      aria-label={`${card.rank} ${card.suit}`}
-      className={`playing-card ${animated ? "card-arrival" : ""} ${card.suit === "HEARTS" || card.suit === "DIAMONDS" ? "red" : "black"}`}
+    <svg
+      role="img"
+      aria-label={cardLabel(card)}
+      data-card-suit={card.suit}
+      data-card-rank={card.rank}
+      className={`playing-card ${animated ? "card-arrival" : ""}`}
+      viewBox="0 0 169.075 244.64"
     >
-      <strong>{card.rank}</strong>
-      <span aria-hidden="true">{suit}</span>
-    </span>
+      <use href={`/assets/svg-cards.svg#${illustrationId}`} />
+    </svg>
   );
 }
 createRoot(document.getElementById("root")!).render(

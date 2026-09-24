@@ -90,7 +90,7 @@ h1 {
   color: #ffb6ae;
   background: #5c2725;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 4px;
 }
 .table {
   margin: 5vh auto;
@@ -497,14 +497,20 @@ body {
     transform 120ms ease,
     border-color 120ms ease;
 }
-.card-button:not(:disabled) {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 2px #e4b86b33;
+.card-button.card-highlight {
+  border-color: transparent;
+  box-shadow: none;
+}
+.card-button:disabled {
+  opacity: 1;
+}
+.card-button.card-playable {
+  transform: translateY(-16px);
 }
 .card-button:not(:disabled):hover,
 .card-button:not(:disabled):focus-visible {
-  transform: translateY(-7px);
-  border-color: var(--cream);
+  transform: translateY(-8px);
+  border-color: transparent;
 }
 .card-button:focus-visible,
 button:focus-visible,
@@ -606,5 +612,331 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .trick-fly-top,
+  .trick-fly-bottom,
+  .trick-fly-left,
+  .trick-fly-right {
+    animation: none !important;
+  }
+}
+
+/* Lightweight French playing-card face: mirrored corners and a restrained center pip. */
+.playing-card {
+  position: relative;
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  padding: 3px;
+  clip-path: inset(1px round 4px);
+  background: linear-gradient(135deg, #fffefa, #f1ede3);
+  color: #171512;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  box-shadow: 0 2px 5px #0006;
+}
+.playing-card.red {
+  color: #b32635;
+}
+.playing-card .card-corner {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 1.2em;
+  font-size: clamp(0.68rem, 1.5vw, 0.92rem);
+  line-height: 0.86;
+}
+.playing-card .card-corner span {
+  font-family: Arial, sans-serif;
+  font-size: 0.82em;
+  line-height: 1;
+}
+.card-corner-top {
+  top: 5px;
+  left: 5px;
+}
+.card-corner-bottom {
+  right: 5px;
+  bottom: 5px;
+  transform: rotate(180deg);
+}
+.playing-card .card-center-suit {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  font-family: Arial, sans-serif;
+  font-size: clamp(1.15rem, 3vw, 1.8rem);
+  line-height: 1;
+}
+
+/* Minimal full-screen playing surface */
+.game-shell {
+  position: relative;
+  padding: 8px;
+  background: var(--felt-deep);
+}
+.game-header {
+  position: absolute;
+  inset: 8px 8px auto;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.home-button {
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  background: #082f27cc;
+  color: var(--cream);
+  border: 1px solid #ffffff33;
+}
+.game-header .score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.82rem;
+}
+.game-table {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  height: calc(100svh - 112px);
+  min-height: 220px;
+  aspect-ratio: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: radial-gradient(ellipse at center, #17644b, var(--felt));
+}
+.player {
+  position: absolute;
+  z-index: 1;
+  min-width: 38px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.player-top {
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.player-bottom {
+  bottom: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.player-left {
+  left: 1%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.player-right {
+  right: 1%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.player small {
+  display: block;
+  color: var(--gold);
+}
+.trick {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(48vw, 360px);
+  height: min(43vw, 320px);
+  min-height: 0;
+  transform: translate(-50%, -50%);
+  display: block;
+}
+.trick-card {
+  position: absolute;
+  display: block;
+}
+.trick-top {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.trick-bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.trick-left {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.trick-right {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.trick-fly-top {
+  animation: trick-fly-top 700ms ease-in forwards;
+}
+.trick-fly-bottom {
+  animation: trick-fly-bottom 700ms ease-in forwards;
+}
+.trick-fly-left {
+  animation: trick-fly-left 700ms ease-in forwards;
+}
+.trick-fly-right {
+  animation: trick-fly-right 700ms ease-in forwards;
+}
+@keyframes trick-fly-top {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -120px) scale(0.82);
+  }
+}
+@keyframes trick-fly-bottom {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 120px) scale(0.82);
+  }
+}
+@keyframes trick-fly-left {
+  to {
+    opacity: 0;
+    transform: translate(-120px, -50%) scale(0.82);
+  }
+}
+@keyframes trick-fly-right {
+  to {
+    opacity: 0;
+    transform: translate(120px, -50%) scale(0.82);
+  }
+}
+.game-table .trick .playing-card {
+  width: clamp(62px, 11vw, 110px);
+  height: auto;
+}
+.hand {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: -2px;
+  transform: translateX(-50%);
+  width: max-content;
+  height: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  flex-wrap: nowrap;
+}
+.hand h2 {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0 0 2px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.card-button {
+  min-width: 0;
+  min-height: 0;
+  height: fit-content;
+  align-self: flex-end;
+  flex: 0 0 clamp(54px, calc(50vw / 3.1), 110px);
+  padding: 0;
+}
+.hand .playing-card {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  align-self: flex-end;
+}
+.playing-card {
+  width: clamp(36px, 7vw, 58px);
+  min-width: 36px;
+  height: clamp(54px, 11vw, 82px);
+}
+.panel {
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  width: min(94vw, 560px);
+  margin: 0;
+  padding: 8px;
+}
+.panel h2 {
+  font-size: 0.9rem;
+}
+.game-shell > .secondary {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+}
+.turn-message {
+  position: absolute;
+  z-index: 2;
+  top: auto;
+  bottom: 68px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  color: #d6eee2;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.dialog .last-trick-layout {
+  position: relative;
+  inset: auto;
+  width: min(100%, 330px);
+  height: 190px;
+  margin: 0 auto;
+  transform: none;
+}
+.dialog .last-trick-layout > .trick-card {
+  display: block;
+  align-items: initial;
+  gap: 0;
+}
+.dialog .last-trick-layout + p {
+  margin: 8px 0;
+  color: #c9dfd5;
+  font-size: 0.85rem;
+}
+@media (max-width: 700px) and (orientation: landscape) {
+  .turn-message {
+    top: auto;
+    bottom: 68px;
+    font-size: 0.78rem;
+  }
+  .dialog .last-trick-layout {
+    height: 150px;
+  }
+  .dialog .last-trick-layout .playing-card {
+    height: 58px;
+  }
+}
+.game-shell > .link,
+.contract,
+.game-shell > [data-testid="participant-count"],
+.game-shell > [data-testid="completed-tricks"] {
+  display: none;
+}
+@media (max-width: 700px) and (orientation: landscape) {
+  .game-table {
+    height: calc(100svh - 76px);
+  }
+  .playing-card {
+    height: 54px;
   }
 }

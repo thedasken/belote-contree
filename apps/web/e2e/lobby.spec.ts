@@ -67,8 +67,8 @@ test("quatre joueurs configurent, démarrent et reprennent la partie", async ({
     for (const page of pages) {
       await expect(page.locator(".game-shell")).toBeVisible();
       await expect(page.getByTestId("local-hand")).toBeVisible();
-      await expect(page.locator(".score")).toContainText("A 0");
-      await expect(page.locator(".score")).toContainText("B 0");
+      await expect(page.locator(".score")).toContainText("Nous : 0");
+      await expect(page.locator(".score")).toContainText("Eux : 0");
     }
 
     // Enchère depuis l'interface : un joueur annonce, les trois suivants passent.
@@ -96,7 +96,7 @@ test("quatre joueurs configurent, démarrent et reprennent la partie", async ({
         passer.getByRole("button", { name: "Passer", exact: true }),
       ).toBeHidden();
     }
-    await expect(pages[0].getByText(/Contrat :/)).toBeVisible();
+    await expect(pages[0].locator(".player-contract").first()).toBeVisible();
 
     // Chaque carte est choisie par le navigateur du joueur actif, selon l'état affiché.
     let reconnected = false;
@@ -139,7 +139,7 @@ test("quatre joueurs configurent, démarrent et reprennent la partie", async ({
         before - 1,
       );
       for (const page of pages)
-        await expect(page.getByTestId("completed-tricks")).toBeVisible();
+        await expect(page.getByTestId("completed-tricks")).toHaveCount(1);
       if (played === 1) {
         const target = await (async () => {
           for (const page of pages)
@@ -156,12 +156,8 @@ test("quatre joueurs configurent, démarrent et reprennent la partie", async ({
           target.getByTestId("current-trick").locator(".playing-card"),
         ).toHaveCount(2);
         await target.reload();
-        await expect(target.getByTestId("local-identity")).toContainText(
-          "Équipe",
-        );
-        await expect(target.getByTestId("participant-count")).toHaveText(
-          "Participants : 4",
-        );
+        await expect(target.getByTestId("local-identity")).toBeVisible();
+        await expect(target.locator(".game-table")).toBeVisible();
         await expect(
           target.getByTestId("current-trick").locator(".playing-card"),
         ).toHaveCount(2);
@@ -178,7 +174,9 @@ test("quatre joueurs configurent, démarrent et reprennent la partie", async ({
     }
     expect(reconnected).toBe(true);
     for (const page of pages)
-      await expect(page.getByText("Plis terminés : 8")).toBeVisible();
+      await expect(page.getByTestId("completed-tricks")).toHaveText(
+        "Plis terminés : 8",
+      );
     await pages[0].getByRole("button", { name: "Dernier pli" }).click();
     await expect(
       pages[0].getByRole("dialog", { name: "Dernier pli" }),

@@ -4,6 +4,7 @@ import websocket from "@fastify/websocket";
 import type { WebSocket } from "ws";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { randomInt } from "node:crypto";
 import { clientMessageSchema } from "@belote/protocol";
 import {
   createDeck,
@@ -25,6 +26,9 @@ import {
 } from "./session.js";
 import { SQLiteSessionRepository } from "./sqlite.js";
 import { ConnectionRegistry } from "./connections.js";
+
+// Production entropy; tests can still inject a deterministic RandomSource in the engine.
+const productionRandom = { next: () => randomInt(0, 1_000_000) / 1_000_000 };
 
 function safeRoom(room: PublicRoom): PublicRoom {
   return room;
@@ -217,6 +221,7 @@ export function buildServer(options: { repository?: SessionRepository } = {}) {
         const game = startDeal(
           createGame(room.participants[0]!.seat),
           createDeck(),
+          productionRandom,
         ).state;
         await repository.save(
           {
@@ -426,7 +431,11 @@ export function buildServer(options: { repository?: SessionRepository } = {}) {
               const snapshot = await repository.get(room.id);
               if (!snapshot?.game || snapshot.game.phase !== "DEAL_COMPLETED")
                 throw new Error("DEAL_NOT_COMPLETED");
-              const nextGame = startDeal(snapshot.game, createDeck()).state;
+              const nextGame = startDeal(
+                snapshot.game,
+                createDeck(),
+                productionRandom,
+              ).state;
               const next = {
                 ...snapshot,
                 game: nextGame,
@@ -498,6 +507,7 @@ export function buildServer(options: { repository?: SessionRepository } = {}) {
               error instanceof Error ? error.message : "COMMAND_REJECTED";
             send({
               type: "COMMAND_REJECTED",
+              commandId: parsed.data.commandId,
               code: message,
               message: "Command rejected",
             });

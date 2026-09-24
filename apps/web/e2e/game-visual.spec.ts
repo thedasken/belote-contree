@@ -24,6 +24,19 @@ async function playablePage(pages: import("@playwright/test").Page[]) {
   throw new Error("Aucune carte jouable");
 }
 
+async function playOne(pages: import("@playwright/test").Page[]) {
+  const cardsInHands = async () =>
+    (
+      await Promise.all(
+        pages.map((page) => page.locator('[data-testid="card"]').count()),
+      )
+    ).reduce((total, count) => total + count, 0);
+  const before = await cardsInHands();
+  const page = await playablePage(pages);
+  await page.locator('[data-testid="card"]:not([disabled])').first().click();
+  await expect.poll(cardsInHands).toBe(before - 1);
+}
+
 for (const [width, height] of viewports) {
   test(`écrans de jeu inspectables à ${width}x${height}`, async ({
     browser,
@@ -117,30 +130,25 @@ for (const [width, height] of viewports) {
               return page;
           throw new Error("Aucun joueur ne peut passer");
         })();
-        await passer
-          .getByRole("button", { name: "Passer", exact: true })
-          .click();
+        const passButton = passer.getByRole("button", {
+          name: "Passer",
+          exact: true,
+        });
+        await passButton.click();
+        await expect(passButton).toBeHidden();
       }
-      await expect(pages[0]!.getByText(/Contrat :/)).toBeVisible();
+      await expect(pages[0]!.locator(".player-contract").first()).toBeVisible();
       await shot("hand");
 
       for (let played = 0; played < 3; played++) {
-        const page = await playablePage(pages);
-        await page
-          .locator('[data-testid="card"]:not([disabled])')
-          .first()
-          .click();
+        await playOne(pages);
       }
       await expect(pages[0]!.getByTestId("current-trick")).toContainText(
         /[♠♥♦♣]/,
       );
       await shot("trick");
       for (let played = 3; played < 32; played++) {
-        const page = await playablePage(pages);
-        await page
-          .locator('[data-testid="card"]:not([disabled])')
-          .first()
-          .click();
+        await playOne(pages);
       }
       await expect(pages[0]!.getByTestId("game-result")).toBeVisible();
       await expect(pages[0]!.getByText("Partie terminée")).toBeVisible();

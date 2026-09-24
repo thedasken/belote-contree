@@ -2,7 +2,9 @@
   "name": "belote-contree",
   "private": true,
   "packageManager": "pnpm@11.19.0",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "typecheck": "pnpm --filter @belote/protocol build && pnpm --filter @belote/game-engine typecheck && pnpm --filter @belote/server typecheck",
     "test": "pnpm --filter @belote/game-engine test && pnpm --filter @belote/server test",
@@ -10,5 +12,10 @@
     "build": "pnpm --filter @belote/protocol build && pnpm --filter @belote/game-engine build && pnpm --filter @belote/server build",
     "dev:server": "pnpm --filter @belote/server build && node apps/server/dist/main.js"
   },
-  "devDependencies": { "prettier": "3.6.2" }
+  "devDependencies": {
+    "prettier": "3.6.2"
+  },
+  "dependencies": {
+    "svg-cards": "^4.0.2"
+  }
 }

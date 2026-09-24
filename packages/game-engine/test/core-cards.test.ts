@@ -67,6 +67,28 @@ describe("CAR-01 to CAR-05", () => {
       RangeError,
     );
   });
+  it("produces complete, non-duplicated deals for distinct deterministic seeds", () => {
+    const dealFor = (seed: number) => {
+      let state = seed >>> 0;
+      const random = {
+        next: () => {
+          state = (1664525 * state + 1013904223) >>> 0;
+          return state / 0x1_0000_0000;
+        },
+      };
+      return dealCards(shuffleDeck(createDeck(), random), 0);
+    };
+    const first = dealFor(11);
+    const second = dealFor(29);
+    for (const hands of [first, second]) {
+      expect(hands).toHaveLength(4);
+      expect(hands.every((hand) => hand.length === 8)).toBe(true);
+      expect(
+        new Set(hands.flat().map((card) => `${card.suit}:${card.rank}`)).size,
+      ).toBe(32);
+    }
+    expect(first).not.toEqual(second);
+  });
 });
 describe("CAR-06 to CAR-09", () => {
   const card = (rank: Card["rank"], suit: Card["suit"] = "HEARTS"): Card => ({

@@ -30,13 +30,15 @@ class Client {
   readonly messages: Message[] = [];
   private readonly waiters: Array<{
     type: string;
+    matches: (message: Message) => boolean;
     resolve: (message: Message) => void;
   }> = [];
   constructor(readonly socket: WebSocket) {
     socket.on("message", (data) => {
       const message = JSON.parse(data.toString()) as Message;
       const waiter = this.waiters.find(
-        (candidate) => candidate.type === message.type,
+        (candidate) =>
+          candidate.type === message.type && candidate.matches(message),
       );
       if (waiter) {
         this.waiters.splice(this.waiters.indexOf(waiter), 1);
@@ -46,8 +48,14 @@ class Client {
       }
     });
   }
-  wait(type: string, timeout = 2000): Promise<Message> {
-    const index = this.messages.findIndex((message) => message.type === type);
+  wait(
+    type: string,
+    timeout = 2000,
+    matches: (message: Message) => boolean = () => true,
+  ): Promise<Message> {
+    const index = this.messages.findIndex(
+      (message) => message.type === type && matches(message),
+    );
     if (index >= 0) return Promise.resolve(this.messages.splice(index, 1)[0]!);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(
@@ -56,6 +64,7 @@ class Client {
       );
       this.waiters.push({
         type,
+        matches,
         resolve: (message) => {
           clearTimeout(timer);
           resolve(message);
@@ -218,14 +227,29 @@ describe("WebSocket integration réelle", () => {
     ).toBe(true);
     let version = Number(initial[0]!.version);
     const send = async (client: Client, seat: number, command: Message) => {
+      const commandId = "cmd-" + seat + "-" + version;
+      const acknowledgement = client.wait(
+        "COMMAND_ACK",
+        2000,
+        (message) => message.commandId === commandId,
+      );
+      const rejection = client.wait(
+        "COMMAND_REJECTED",
+        2000,
+        (message) => message.commandId === commandId,
+      );
       client.send({
         type: "GAME_COMMAND",
-        commandId: "cmd-" + seat + "-" + version,
+        commandId,
         expectedVersion: version,
         command,
       });
-      await client.wait("COMMAND_ACK");
-      version++;
+      const response = await Promise.race([acknowledgement, rejection]);
+      if (response.type === "COMMAND_REJECTED")
+        throw new Error(
+          `Command ${commandId} rejected: ${String(response.code)}`,
+        );
+      version = Number(response.version);
     };
     await send(clients[1]!, 1, {
       type: "PLACE_BID",
@@ -237,7 +261,13 @@ describe("WebSocket integration réelle", () => {
     await send(clients[3]!, 3, { type: "PASS", seat: 3 });
     await send(clients[0]!, 0, { type: "PASS", seat: 0 });
     const playing = await Promise.all(
-      clients.map((client) => client.wait("GAME_STATE")),
+      clients.map((client) =>
+        client.wait(
+          "GAME_STATE",
+          2000,
+          (message) => Number(message.version) === version,
+        ),
+      ),
     );
     const state1 = playing[1]!.state as {
       hand: Array<{ suit: string; rank: string }>;
@@ -245,15 +275,21 @@ describe("WebSocket integration réelle", () => {
     const lead = state1.hand[0]!;
     await send(clients[1]!, 1, { type: "PLAY_CARD", seat: 1, card: lead });
     for (const seat of [2, 3, 0]) {
-      const view = (await clients[seat]!.wait("GAME_STATE")).state as {
+      const view = (
+        await clients[seat]!.wait(
+          "GAME_STATE",
+          2000,
+          (message) => Number(message.version) === version,
+        )
+      ).state as {
         hand: Array<{ suit: string; rank: string }>;
         publicTricks: Array<{ cards: Array<{ card: { suit: string } }> }>;
       };
-      const suit = view.publicTricks.at(-1)?.cards[0]?.card.suit;
-      const card =
-        view.hand.find((candidate) => candidate.suit === suit) ??
-        view.hand.find((candidate) => candidate.suit !== "HEARTS") ??
-        view.hand[0]!;
+      const card = legalCard({
+        hand: view.hand as Card[],
+        publicTricks: view.publicTricks as View["publicTricks"],
+        contract: { bid: { trumpSuit: "HEARTS" } },
+      } as View);
       await send(clients[seat]!, seat, { type: "PLAY_CARD", seat, card });
     }
     expect(
